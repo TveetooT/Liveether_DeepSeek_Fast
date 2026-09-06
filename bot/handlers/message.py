@@ -39,12 +39,16 @@ class MessageHandler(BaseHandler):
             await self.profile.set_action(user_id, "None")
             return
 
-        # Обработка состояний анкеты
+        # Обработка состояния "правила" – теперь inline-кнопка
         if action == "rules":
-            await message.answer("Пожалуйста, примите правила, нажав кнопку ниже.",
-                                 reply_markup=KeyboardFactory.rules_accept(), parse_mode="HTML")
+            await message.answer(
+                "Пожалуйста, примите правила, нажав кнопку ниже.",
+                reply_markup=KeyboardFactory.rules_inline(),   # inline-кнопка
+                parse_mode="HTML"
+            )
             return
 
+        # Обработка состояний анкеты
         if action in ("name", "age", "univer", "about", "requirements", "region", "city", "confirm"):
             await self._process_form_step(message, user_id, action)
             return
@@ -63,7 +67,6 @@ class MessageHandler(BaseHandler):
             if text == "Заполнить заново":
                 await self.profile.set_action(user_id, "None")
                 await self.profile.start_form(user_id)
-                # Выводим первый вопрос
                 await message.answer(PHRASES["nameMessage"], parse_mode="HTML")
             elif text == "Всё хорошо":
                 await self.db.update_field(user_id, "form", "true")
@@ -74,7 +77,6 @@ class MessageHandler(BaseHandler):
                 await message.answer("Пожалуйста, используй кнопки ниже.", reply_markup=KeyboardFactory.form_confirm())
             return
 
-        # Валидация и сохранение
         ok, error = await self.profile.save_form_data(user_id, action, text)
         if not ok:
             await message.answer(f"⚠️ {error}")
@@ -87,7 +89,6 @@ class MessageHandler(BaseHandler):
 
         await self.profile.set_action(user_id, next_action)
 
-        # Генерация вопроса для следующего шага
         if next_action == "region":
             await message.answer(PHRASES["regionMessage"], reply_markup=KeyboardFactory.regions_inline(), parse_mode="HTML")
         elif next_action == "city":
@@ -100,7 +101,6 @@ class MessageHandler(BaseHandler):
                 await message.answer(PHRASES["confirmMessage"] + text_profile,
                                      reply_markup=KeyboardFactory.form_confirm(), parse_mode="HTML")
         else:
-            # Остальные шаги
             phrase_key = next_action + "Message"
             await message.answer(PHRASES.get(phrase_key, "Продолжайте заполнение."), parse_mode="HTML")
 
@@ -110,13 +110,12 @@ class MessageHandler(BaseHandler):
         if not ok:
             await message.answer(f"⚠️ {error}")
             return
-        # Показываем обновлённый профиль
         user = await self.profile.get_profile(user_id)
         if user:
             await message.answer(self._format_profile(user), reply_markup=KeyboardFactory.edit_inline(), parse_mode="HTML")
         await self.profile.set_action(user_id, "None")
 
-    # Вспомогательные методы (такие же как в CommandHandler)
+    # ---------- Вспомогательные методы (одинаковые с CommandHandler) ----------
     async def _show_profile(self, message: Message, user_id: int):
         user = await self.profile.get_profile(user_id)
         if user and user.name:
@@ -153,7 +152,6 @@ class MessageHandler(BaseHandler):
         await self.profile.set_action(user_id, f"likes_{liked_user_id}")
 
     def _format_profile(self, user) -> str:
-        # Аналогично CommandHandler._format_profile
         name = html.escape(str(user.name or ""))
         age = user.age
         univer = html.escape(str(user.univer or ""))
@@ -171,7 +169,6 @@ class MessageHandler(BaseHandler):
             return f"<b>{name}</b> | {univer}\n\n<b>О себе: </b>\n<i>{about}</i>\n\n<b>Пожелания к соседу: </b>\n<i>{requirements}</i>\n\n"
 
     def _format_profile_dict(self, data: dict) -> str:
-        # Аналогично CommandHandler._format_profile_dict
         name = html.escape(str(data.get("name") or ""))
         age = data.get("age")
         univer = html.escape(str(data.get("univer") or ""))

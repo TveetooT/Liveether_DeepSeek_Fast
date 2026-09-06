@@ -3,7 +3,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from regions import Regions
 
 class KeyboardFactory:
-    # Константы для текстов кнопок
+    # Тексты кнопок
     MAIN_BUTTONS = {
         "Profile": "👤 Моя анкета",
         "Find": "🔍 Найти сожителя",
@@ -39,10 +39,16 @@ class KeyboardFactory:
         return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
 
     @classmethod
-    def rules_accept(cls) -> ReplyKeyboardMarkup:
-        builder = ReplyKeyboardBuilder()
-        builder.button(text="✅ Принимаю")
-        return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
+    def rules_inline(cls) -> InlineKeyboardMarkup:
+        """Inline-кнопка для принятия правил"""
+        builder = InlineKeyboardBuilder()
+        builder.button(text="✅ Принимаю", callback_data="accept_rules")
+        return builder.as_markup()
+
+    # (опционально) можно оставить reply-версию, но она не используется
+    # @classmethod
+    # def rules_reply(cls) -> ReplyKeyboardMarkup:
+    #     ...
 
     @classmethod
     def regions_inline(cls) -> InlineKeyboardMarkup:

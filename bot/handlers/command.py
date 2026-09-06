@@ -29,7 +29,11 @@ class CommandHandler(BaseHandler):
             await self.profile.start_form(user_id)
             action = await self.profile.get_action(user_id)
             if action == "rules":
-                await message.answer(PHRASES["RulesMessage"], reply_markup=KeyboardFactory.rules_accept(), parse_mode="HTML")
+                await message.answer(
+                    PHRASES["RulesMessage"],
+                    reply_markup=KeyboardFactory.rules_inline(),   # inline-кнопка
+                    parse_mode="HTML"
+                )
             else:
                 await message.answer(PHRASES["nameMessage"], parse_mode="HTML")
         elif text == "/profile":
@@ -88,7 +92,6 @@ class CommandHandler(BaseHandler):
         about = html.escape(str(user.about or ""))
         requirements = html.escape(str(user.requirements or ""))
         if age:
-            # Склонение лет
             if age % 10 == 1 and age % 100 != 11:
                 yearword = "год"
             elif age % 10 in [2,3,4] and age % 100 not in [12,13,14]:
