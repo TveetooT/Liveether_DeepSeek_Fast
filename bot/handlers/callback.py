@@ -2,7 +2,7 @@ from aiogram.types import CallbackQuery
 from bot.handlers.base import BaseHandler
 from bot.services.keyboard import KeyboardFactory
 from bot.constants import PHRASES
-from config import Config
+from regions import Regions  # <--- добавляем импорт
 import html
 
 class CallbackHandler(BaseHandler):
@@ -17,15 +17,20 @@ class CallbackHandler(BaseHandler):
 
         if data.startswith("reg_"):
             idx = int(data.split("_")[1])
-            region = list(KeyboardFactory.regions_inline().inline_keyboard)[idx].text
+            # Используем список регионов из Regions
+            region_keys = list(Regions.keys())
+            region = region_keys[idx]  # теперь безопасно
             await self.db.update_field(user_id, "region", region)
             action = await self.profile.get_action(user_id)
             if action == "regionEdit":
                 await self.profile.set_action(user_id, "cityEdit")
             else:
                 await self.profile.set_action(user_id, "city")
-            await callback.message.answer(PHRASES["cityMessage"],
-                                          reply_markup=KeyboardFactory.cities_inline(region), parse_mode="HTML")
+            await callback.message.answer(
+                PHRASES["cityMessage"],
+                reply_markup=KeyboardFactory.cities_inline(region),
+                parse_mode="HTML"
+            )
         elif data.startswith("city_"):
             city = data[5:]
             await self.db.update_field(user_id, "city", city)
@@ -33,24 +38,36 @@ class CallbackHandler(BaseHandler):
             if action == "cityEdit":
                 await self.profile.set_action(user_id, "None")
                 user = await self.profile.get_profile(user_id)
-                await callback.message.answer(self._format_profile(user),
-                                              reply_markup=KeyboardFactory.edit_inline(), parse_mode="HTML")
+                await callback.message.answer(
+                    self._format_profile(user),
+                    reply_markup=KeyboardFactory.edit_inline(),
+                    parse_mode="HTML"
+                )
             else:
                 await self.profile.set_action(user_id, "confirm")
                 user = await self.profile.get_profile(user_id)
                 text = self._format_profile(user)
-                await callback.message.answer(PHRASES["confirmMessage"] + text,
-                                              reply_markup=KeyboardFactory.form_confirm(), parse_mode="HTML")
+                await callback.message.answer(
+                    PHRASES["confirmMessage"] + text,
+                    reply_markup=KeyboardFactory.form_confirm(),
+                    parse_mode="HTML"
+                )
         elif data.startswith("edit_"):
             field = data[5:]
             if field == "city":
                 await self.profile.set_action(user_id, "regionEdit")
-                await callback.message.answer(PHRASES["regionMessage"],
-                                              reply_markup=KeyboardFactory.regions_inline(), parse_mode="HTML")
+                await callback.message.answer(
+                    PHRASES["regionMessage"],
+                    reply_markup=KeyboardFactory.regions_inline(),
+                    parse_mode="HTML"
+                )
             else:
                 await self.profile.set_action(user_id, f"{field}Edit")
                 phrase_key = field + "Message"
-                await callback.message.answer(PHRASES.get(phrase_key, "Введите новое значение"), parse_mode="HTML")
+                await callback.message.answer(
+                    PHRASES.get(phrase_key, "Введите новое значение"),
+                    parse_mode="HTML"
+                )
         elif data.startswith("view_"):
             reaction = data[5:]
             action = await self.profile.get_action(user_id)
@@ -59,22 +76,34 @@ class CallbackHandler(BaseHandler):
                 if reaction == "like":
                     mutual, liker_name, liked_name = await self.view.handle_like(user_id, liked_id)
                     if mutual:
-                        await self.bot.send_message(liked_id, f"Совпадение с {liker_name}! Свяжитесь чтобы обсудить сожительство!")
-                        await self.bot.send_message(user_id, f"Совпадение с {liked_name}! Свяжитесь чтобы обсудить сожительство!")
+                        await self.bot.send_message(
+                            liked_id,
+                            f"Совпадение с {liker_name}! Свяжитесь чтобы обсудить сожительство!"
+                        )
+                        await self.bot.send_message(
+                            user_id,
+                            f"Совпадение с {liked_name}! Свяжитесь чтобы обсудить сожительство!"
+                        )
                 elif reaction == "report":
                     await self.view.handle_report(user_id, liked_id)
                 else:  # dislike
                     await self.view.handle_dislike(user_id, liked_id)
                 await callback.message.edit_reply_markup(reply_markup=None)
-                if reaction != "like":  # после лайка не показываем следующий, но можно показать лайки
+                if reaction != "like":
                     await self._show_likes(callback.message, user_id)
             elif action.startswith("viewing_"):
                 viewed_id = int(action.split("_")[1])
                 if reaction == "like":
                     mutual, liker_name, liked_name = await self.view.handle_like(user_id, viewed_id)
                     if mutual:
-                        await self.bot.send_message(viewed_id, f"Совпадение с {liker_name}! Свяжитесь чтобы обсудить сожительство!")
-                        await self.bot.send_message(user_id, f"Совпадение с {liked_name}! Свяжитесь чтобы обсудить сожительство!")
+                        await self.bot.send_message(
+                            viewed_id,
+                            f"Совпадение с {liker_name}! Свяжитесь чтобы обсудить сожительство!"
+                        )
+                        await self.bot.send_message(
+                            user_id,
+                            f"Совпадение с {liked_name}! Свяжитесь чтобы обсудить сожительство!"
+                        )
                 elif reaction == "report":
                     await self.view.handle_report(user_id, viewed_id)
                 else:
@@ -90,7 +119,7 @@ class CallbackHandler(BaseHandler):
         else:
             await callback.message.answer("Неизвестный callback.")
 
-    # Вспомогательные методы
+    # Вспомогательные методы (оставляем без изменений)
     async def _find(self, message, user_id):
         city = await self.db.get_field(user_id, "city")
         if not city:
@@ -119,6 +148,7 @@ class CallbackHandler(BaseHandler):
         await self.profile.set_action(user_id, f"likes_{liked_user_id}")
 
     def _format_profile(self, user) -> str:
+        import html
         name = html.escape(str(user.name or ""))
         age = user.age
         univer = html.escape(str(user.univer or ""))
@@ -136,6 +166,7 @@ class CallbackHandler(BaseHandler):
             return f"<b>{name}</b> | {univer}\n\n<b>О себе: </b>\n<i>{about}</i>\n\n<b>Пожелания к соседу: </b>\n<i>{requirements}</i>\n\n"
 
     def _format_profile_dict(self, data: dict) -> str:
+        import html
         name = html.escape(str(data.get("name") or ""))
         age = data.get("age")
         univer = html.escape(str(data.get("univer") or ""))

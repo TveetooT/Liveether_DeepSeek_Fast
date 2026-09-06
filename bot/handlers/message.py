@@ -39,22 +39,55 @@ class MessageHandler(BaseHandler):
             await self.profile.set_action(user_id, "None")
             return
 
-        # Обработка состояния "правила" – теперь inline-кнопка
+        # Обработка состояния "правила" – inline-кнопка
         if action == "rules":
             await message.answer(
                 "Пожалуйста, примите правила, нажав кнопку ниже.",
-                reply_markup=KeyboardFactory.rules_inline(),   # inline-кнопка
+                reply_markup=KeyboardFactory.rules_inline(),
                 parse_mode="HTML"
             )
             return
 
         # Обработка состояний анкеты
-        if action in ("name", "age", "univer", "about", "requirements", "region", "city", "confirm"):
+        if action in ("name", "age", "univer", "about", "requirements", "confirm"):
             await self._process_form_step(message, user_id, action)
             return
 
+        # Особый случай: регион и город – только через inline-кнопки
+        if action == "region":
+            # Показываем клавиатуру регионов и просим использовать её
+            await message.answer(
+                "Пожалуйста, выберите регион, нажав на одну из кнопок ниже.",
+                reply_markup=KeyboardFactory.regions_inline(),
+                parse_mode="HTML"
+            )
+            return
+
+        if action == "city":
+            # Показываем клавиатуру городов (регион уже сохранён)
+            region = await self.db.get_field(user_id, "region")
+            if region:
+                await message.answer(
+                    "Пожалуйста, выберите город, нажав на одну из кнопок ниже.",
+                    reply_markup=KeyboardFactory.cities_inline(region),
+                    parse_mode="HTML"
+                )
+            else:
+                # если региона нет – возвращаем на шаг региона
+                await self.profile.set_action(user_id, "region")
+                await message.answer(
+                    "Сначала выберите регион.",
+                    reply_markup=KeyboardFactory.regions_inline(),
+                    parse_mode="HTML"
+                )
+            return
+
+        # Редактирование полей
         if action in ("nameEdit", "ageEdit", "univerEdit", "aboutEdit", "requirementsEdit", "regionEdit"):
             field = action[:-4]  # убираем "Edit"
+            if field in ("region", "city"):  # на всякий случай
+                await message.answer("Используйте кнопки для изменения.")
+                return
             await self._process_edit(message, user_id, field)
             return
 
@@ -77,6 +110,7 @@ class MessageHandler(BaseHandler):
                 await message.answer("Пожалуйста, используй кнопки ниже.", reply_markup=KeyboardFactory.form_confirm())
             return
 
+        # Валидация и сохранение (только для текстовых полей)
         ok, error = await self.profile.save_form_data(user_id, action, text)
         if not ok:
             await message.answer(f"⚠️ {error}")
@@ -89,6 +123,7 @@ class MessageHandler(BaseHandler):
 
         await self.profile.set_action(user_id, next_action)
 
+        # Отправляем следующий вопрос или клавиатуру
         if next_action == "region":
             await message.answer(PHRASES["regionMessage"], reply_markup=KeyboardFactory.regions_inline(), parse_mode="HTML")
         elif next_action == "city":
